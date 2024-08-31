@@ -24,12 +24,12 @@ documentation].
 
 | Release | Release Date  |   EOL    |
 |:-------:|:-------------:|:--------:|
-|  v1.14  | Nov 1, 2023   | Aug 2024 |
 |  v1.15  | Feb 15, 2024  | Nov 2024 |
 |  v1.16  | May 15, 2024  | Feb 2025 |
-|  v1.17  | Early Aug '24 | May 2025 |
+|  v1.17  | Aug 29, 2024  | May 2025 |
 |  v1.18  | Early Nov '24 | Aug 2025 |
 |  v1.19  | Early Feb '25 | Nov 2025 |
+|  v1.20  | Early May '25 | Feb 2026 |
 
 You can subscribe to the [community calendar] to track all release dates, and
 find the most recent releases on the [releases] page.
@@ -39,6 +39,16 @@ find the most recent releases on the [releases] page.
 The public roadmap for Crossplane is published as a GitHub project board. Issues
 added to the roadmap have been triaged and identified as valuable to the
 community, and therefore a priority for the project that we expect to invest in.
+
+The maintainer team regularly triages requests from the community to identify
+features and issues of suitable scope and impact to include in this roadmap. The
+community is encouraged to show their support for potential roadmap issues by
+adding a :+1: reaction, leaving descriptive comments, and attending the
+[regular community meetings] to discuss their requirements and use cases.
+
+The maintainer team updates the roadmap on an as needed basis, in response to
+demand, priority, and available resources. The public roadmap can be updated at
+any time.
 
 Milestones assigned to any issues in the roadmap are intended to give a sense of
 overall priority and the expected order of delivery. They should be considered
@@ -76,12 +86,14 @@ encouraged to join.
 * [Community Calendar][community calendar]
 
 ### Special Interest Groups (SIG)
+
 Each SIG collaborates in Slack and some groups have regular meetings, you can
 find the meetings in the [Community Calendar][community calendar].
 - [#sig-composition-environments][sig-composition-environments-slack]
 - [#sig-composition-functions][sig-composition-functions-slack]
 - [#sig-deletion-ordering][sig-deletion-ordering-slack]
 - [#sig-devex][sig-devex-slack]
+- [#sig-docs][sig-docs-slack]
 - [#sig-e2e-testing][sig-e2e-testing-slack]
 - [#sig-observability][sig-observability-slack]
 - [#sig-observe-only][sig-observe-only-slack]
@@ -123,11 +135,13 @@ Crossplane is under the Apache 2.0 license.
 [community calendar]: https://calendar.google.com/calendar/embed?src=c_2cdn0hs9e2m05rrv1233cjoj1k%40group.calendar.google.com
 [releases]: https://github.com/crossplane/crossplane/releases
 [ADOPTERS.md]: ADOPTERS.md
+[regular community meetings]: https://github.com/crossplane/crossplane/blob/master/README.md#get-involved
 [Crossplane Roadmap]: https://github.com/orgs/crossplane/projects/20/views/9?pane=info
 [sig-composition-environments-slack]: https://crossplane.slack.com/archives/C05BP6QFLUW
 [sig-composition-functions-slack]: https://crossplane.slack.com/archives/C031Y29CSAE
 [sig-deletion-ordering-slack]: https://crossplane.slack.com/archives/C05BP8W5ALW
 [sig-devex-slack]: https://crossplane.slack.com/archives/C05U1LLM3B2
+[sig-docs-slack]: https://crossplane.slack.com/archives/C02CAQ52DPU
 [sig-e2e-testing-slack]: https://crossplane.slack.com/archives/C05C8CCTVNV
 [sig-observability-slack]: https://crossplane.slack.com/archives/C061GNH3LA0
 [sig-observe-only-slack]: https://crossplane.slack.com/archives/C04D5988QEA

@@ -36,7 +36,7 @@ type Cmd struct {
 	Resources  string `arg:"" help:"Resources source which can be a file, directory, or '-' for standard input."`
 
 	// Flags. Keep them in alphabetical order.
-	CacheDir           string `default:".crossplane/cache"                                          help:"Absolute path to the cache directory where downloaded schemas are stored."`
+	CacheDir           string `default:"~/.crossplane/cache"                                        help:"Absolute path to the cache directory where downloaded schemas are stored."`
 	CleanCache         bool   `help:"Clean the cache directory before downloading package schemas."`
 	SkipSuccessResults bool   `help:"Skip printing success results."`
 
@@ -47,11 +47,11 @@ type Cmd struct {
 func (c *Cmd) Help() string {
 	return `
 This command validates the provided Crossplane resources against the schemas of the provided extensions like XRDs, 
-CRDs, providers, and configurations. The output of the "crossplane beta render" command can be 
+CRDs, providers, and configurations. The output of the "crossplane render" command can be 
 piped to this validate command in order to rapidly validate on the outputs of the composition development experience.
 
 If providers or configurations are provided as extensions, they will be downloaded and loaded as CRDs before performing
-validation. If the cache directory is not provided, it will default to ".crossplane/cache" in the current workspace. 
+validation. If the cache directory is not provided, it will default to "~/.crossplane/cache". 
 Cache directory can be cleaned before downloading schemas by setting the "clean-cache" flag.
 
 All validation is performed offline locally using the Kubernetes API server's validation library, so it does not require 
@@ -67,7 +67,7 @@ Examples:
   crossplane beta validate extensionsDir/ resourceDir/ --skip-success-results
  
   # Validate the output of the render command against the extensions in the extensionsDir folder
-  crossplane beta render xr.yaml composition.yaml func.yaml --include-full-xr | crossplane beta validate extensionsDir/ -
+  crossplane render xr.yaml composition.yaml func.yaml --include-full-xr | crossplane beta validate extensionsDir/ -
 
   # Validate all resources in the resourceDir folder against the extensions in the extensionsDir folder using provided
   # cache directory and clean the cache directory before downloading schemas
@@ -107,15 +107,6 @@ func (c *Cmd) Run(k *kong.Context, _ logging.Logger) error {
 	resources, err := resourceLoader.Load()
 	if err != nil {
 		return errors.Wrapf(err, "cannot load resources from %q", c.Resources)
-	}
-
-	// Update default cache directory to absolute path based on the current working directory
-	if c.CacheDir == defaultCacheDir {
-		currentPath, err := os.Getwd()
-		if err != nil {
-			return errors.Wrapf(err, "cannot get current path")
-		}
-		c.CacheDir = filepath.Join(currentPath, c.CacheDir)
 	}
 
 	if strings.HasPrefix(c.CacheDir, "~/") {

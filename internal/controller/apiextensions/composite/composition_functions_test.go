@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kunstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,7 +45,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/resource/unstructured/composite"
 	"github.com/crossplane/crossplane-runtime/pkg/test"
 
-	"github.com/crossplane/crossplane/apis/apiextensions/fn/proto/v1beta1"
+	fnv1 "github.com/crossplane/crossplane/apis/apiextensions/fn/proto/v1"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/crossplane/crossplane/internal/xcrd"
 )
@@ -197,7 +196,7 @@ func TestFunctionCompose(t *testing.T) {
 		"RunFunctionError": {
 			reason: "We should return any error encountered while running a Composition Function",
 			params: params{
-				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *v1beta1.RunFunctionRequest) (rsp *v1beta1.RunFunctionResponse, err error) {
+				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *fnv1.RunFunctionRequest) (rsp *fnv1.RunFunctionResponse, err error) {
 					return nil, errBoom
 				}),
 				o: []FunctionComposerOption{
@@ -231,52 +230,52 @@ func TestFunctionCompose(t *testing.T) {
 		"FatalFunctionResultError": {
 			reason: "We should return any fatal function results as an error. Any conditions returned by the function should be passed up. Any results returned by the function prior to the fatal result should be passed up.",
 			params: params{
-				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *v1beta1.RunFunctionRequest) (rsp *v1beta1.RunFunctionResponse, err error) {
-					return &v1beta1.RunFunctionResponse{
-						Results: []*v1beta1.Result{
+				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *fnv1.RunFunctionRequest) (rsp *fnv1.RunFunctionResponse, err error) {
+					return &fnv1.RunFunctionResponse{
+						Results: []*fnv1.Result{
 							// This result should be passed up as it was sent before the fatal
 							// result. The reason should be defaulted. The target should be
 							// defaulted.
 							{
-								Severity: v1beta1.Severity_SEVERITY_NORMAL,
+								Severity: fnv1.Severity_SEVERITY_NORMAL,
 								Message:  "A result before the fatal result with the default Reason.",
 							},
 							// This result should be passed up as it was sent before the fatal
 							// result. The reason should be kept. The target should be kept.
 							{
-								Severity: v1beta1.Severity_SEVERITY_NORMAL,
+								Severity: fnv1.Severity_SEVERITY_NORMAL,
 								Reason:   ptr.To("SomeReason"),
 								Message:  "A result before the fatal result with a specific Reason.",
-								Target:   v1beta1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
+								Target:   fnv1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
 							},
 							// The fatal result
 							{
-								Severity: v1beta1.Severity_SEVERITY_FATAL,
+								Severity: fnv1.Severity_SEVERITY_FATAL,
 								Message:  "oh no",
 							},
 							// This result should not be passed up as it was sent after the
 							// fatal result.
 							{
-								Severity: v1beta1.Severity_SEVERITY_NORMAL,
+								Severity: fnv1.Severity_SEVERITY_NORMAL,
 								Message:  "a result after the fatal result",
 							},
 						},
-						Conditions: []*v1beta1.Condition{
+						Conditions: []*fnv1.Condition{
 							// A condition returned by the function with only the minimum
 							// necessary values.
 							{
 								Type:   "DatabaseReady",
-								Status: v1beta1.Status_STATUS_CONDITION_FALSE,
+								Status: fnv1.Status_STATUS_CONDITION_FALSE,
 								Reason: "Creating",
 							},
 							// A condition returned by the function with all optional values
 							// given.
 							{
 								Type:    "DeploymentReady",
-								Status:  v1beta1.Status_STATUS_CONDITION_TRUE,
+								Status:  fnv1.Status_STATUS_CONDITION_TRUE,
 								Reason:  "Available",
 								Message: ptr.To("The deployment is ready."),
-								Target:  v1beta1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
+								Target:  fnv1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
 							},
 						},
 					}, nil
@@ -357,9 +356,9 @@ func TestFunctionCompose(t *testing.T) {
 		"RenderComposedResourceMetadataError": {
 			reason: "We should return any error we encounter when rendering composed resource metadata",
 			params: params{
-				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *v1beta1.RunFunctionRequest) (rsp *v1beta1.RunFunctionResponse, err error) {
-					d := &v1beta1.State{
-						Resources: map[string]*v1beta1.Resource{
+				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *fnv1.RunFunctionRequest) (rsp *fnv1.RunFunctionResponse, err error) {
+					d := &fnv1.State{
+						Resources: map[string]*fnv1.Resource{
 							"cool-resource": {
 								Resource: MustStruct(map[string]any{
 									"apiVersion": "test.crossplane.io/v1",
@@ -368,7 +367,7 @@ func TestFunctionCompose(t *testing.T) {
 							},
 						},
 					}
-					return &v1beta1.RunFunctionResponse{Desired: d}, nil
+					return &fnv1.RunFunctionResponse{Desired: d}, nil
 				}),
 				o: []FunctionComposerOption{
 					WithCompositeConnectionDetailsFetcher(ConnectionDetailsFetcherFn(func(_ context.Context, _ resource.ConnectionSecretOwner) (managed.ConnectionDetails, error) {
@@ -405,9 +404,9 @@ func TestFunctionCompose(t *testing.T) {
 				kube: &test.MockClient{
 					MockGet: test.NewMockGetFn(errBoom),
 				},
-				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *v1beta1.RunFunctionRequest) (rsp *v1beta1.RunFunctionResponse, err error) {
-					d := &v1beta1.State{
-						Resources: map[string]*v1beta1.Resource{
+				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *fnv1.RunFunctionRequest) (rsp *fnv1.RunFunctionResponse, err error) {
+					d := &fnv1.State{
+						Resources: map[string]*fnv1.Resource{
 							"cool-resource": {
 								Resource: MustStruct(map[string]any{
 									"apiVersion": "test.crossplane.io/v1",
@@ -418,7 +417,7 @@ func TestFunctionCompose(t *testing.T) {
 							},
 						},
 					}
-					return &v1beta1.RunFunctionResponse{Desired: d}, nil
+					return &fnv1.RunFunctionResponse{Desired: d}, nil
 				}),
 				o: []FunctionComposerOption{
 					WithCompositeConnectionDetailsFetcher(ConnectionDetailsFetcherFn(func(_ context.Context, _ resource.ConnectionSecretOwner) (managed.ConnectionDetails, error) {
@@ -454,8 +453,8 @@ func TestFunctionCompose(t *testing.T) {
 				kube: &test.MockClient{
 					MockPatch: test.NewMockPatchFn(nil),
 				},
-				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *v1beta1.RunFunctionRequest) (rsp *v1beta1.RunFunctionResponse, err error) {
-					return &v1beta1.RunFunctionResponse{}, nil
+				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *fnv1.RunFunctionRequest) (rsp *fnv1.RunFunctionResponse, err error) {
+					return &fnv1.RunFunctionResponse{}, nil
 				}),
 				o: []FunctionComposerOption{
 					WithCompositeConnectionDetailsFetcher(ConnectionDetailsFetcherFn(func(_ context.Context, _ resource.ConnectionSecretOwner) (managed.ConnectionDetails, error) {
@@ -502,8 +501,8 @@ func TestFunctionCompose(t *testing.T) {
 						return nil
 					}),
 				},
-				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *v1beta1.RunFunctionRequest) (rsp *v1beta1.RunFunctionResponse, err error) {
-					return &v1beta1.RunFunctionResponse{}, nil
+				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *fnv1.RunFunctionRequest) (rsp *fnv1.RunFunctionResponse, err error) {
+					return &fnv1.RunFunctionResponse{}, nil
 				}),
 				o: []FunctionComposerOption{
 					WithCompositeConnectionDetailsFetcher(ConnectionDetailsFetcherFn(func(_ context.Context, _ resource.ConnectionSecretOwner) (managed.ConnectionDetails, error) {
@@ -543,9 +542,9 @@ func TestFunctionCompose(t *testing.T) {
 					MockPatch:       test.NewMockPatchFn(nil),
 					MockStatusPatch: test.NewMockSubResourcePatchFn(errBoom),
 				},
-				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *v1beta1.RunFunctionRequest) (rsp *v1beta1.RunFunctionResponse, err error) {
-					d := &v1beta1.State{
-						Composite: &v1beta1.Resource{
+				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *fnv1.RunFunctionRequest) (rsp *fnv1.RunFunctionResponse, err error) {
+					d := &fnv1.State{
+						Composite: &fnv1.Resource{
 							Resource: MustStruct(map[string]any{
 								"status": map[string]any{
 									"widgets": 42,
@@ -553,7 +552,7 @@ func TestFunctionCompose(t *testing.T) {
 							}),
 						},
 					}
-					return &v1beta1.RunFunctionResponse{Desired: d}, nil
+					return &fnv1.RunFunctionResponse{Desired: d}, nil
 				}),
 				o: []FunctionComposerOption{
 					WithCompositeConnectionDetailsFetcher(ConnectionDetailsFetcherFn(func(_ context.Context, _ resource.ConnectionSecretOwner) (managed.ConnectionDetails, error) {
@@ -603,9 +602,9 @@ func TestFunctionCompose(t *testing.T) {
 					}),
 					MockStatusPatch: test.NewMockSubResourcePatchFn(nil),
 				},
-				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *v1beta1.RunFunctionRequest) (rsp *v1beta1.RunFunctionResponse, err error) {
-					d := &v1beta1.State{
-						Resources: map[string]*v1beta1.Resource{
+				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *fnv1.RunFunctionRequest) (rsp *fnv1.RunFunctionResponse, err error) {
+					d := &fnv1.State{
+						Resources: map[string]*fnv1.Resource{
 							"uncool-resource": {
 								Resource: MustStruct(map[string]any{
 									"apiVersion": "test.crossplane.io/v1",
@@ -614,7 +613,7 @@ func TestFunctionCompose(t *testing.T) {
 							},
 						},
 					}
-					return &v1beta1.RunFunctionResponse{Desired: d}, nil
+					return &fnv1.RunFunctionResponse{Desired: d}, nil
 				}),
 				o: []FunctionComposerOption{
 					WithCompositeConnectionDetailsFetcher(ConnectionDetailsFetcherFn(func(_ context.Context, _ resource.ConnectionSecretOwner) (managed.ConnectionDetails, error) {
@@ -668,10 +667,10 @@ func TestFunctionCompose(t *testing.T) {
 					MockPatch:       test.NewMockPatchFn(nil),
 					MockStatusPatch: test.NewMockSubResourcePatchFn(nil),
 				},
-				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *v1beta1.RunFunctionRequest) (*v1beta1.RunFunctionResponse, error) {
-					rsp := &v1beta1.RunFunctionResponse{
-						Desired: &v1beta1.State{
-							Composite: &v1beta1.Resource{
+				r: FunctionRunnerFn(func(_ context.Context, _ string, _ *fnv1.RunFunctionRequest) (*fnv1.RunFunctionResponse, error) {
+					rsp := &fnv1.RunFunctionResponse{
+						Desired: &fnv1.State{
+							Composite: &fnv1.Resource{
 								Resource: MustStruct(map[string]any{
 									"status": map[string]any{
 										"widgets": 42,
@@ -679,13 +678,13 @@ func TestFunctionCompose(t *testing.T) {
 								}),
 								ConnectionDetails: map[string][]byte{"from": []byte("function-pipeline")},
 							},
-							Resources: map[string]*v1beta1.Resource{
+							Resources: map[string]*fnv1.Resource{
 								"observed-resource-a": {
 									Resource: MustStruct(map[string]any{
 										"apiVersion": "test.crossplane.io/v1",
 										"kind":       "CoolComposed",
 									}),
-									Ready: v1beta1.Ready_READY_TRUE,
+									Ready: fnv1.Ready_READY_TRUE,
 								},
 								"desired-resource-a": {
 									Resource: MustStruct(map[string]any{
@@ -695,42 +694,42 @@ func TestFunctionCompose(t *testing.T) {
 								},
 							},
 						},
-						Results: []*v1beta1.Result{
+						Results: []*fnv1.Result{
 							{
-								Severity: v1beta1.Severity_SEVERITY_NORMAL,
+								Severity: fnv1.Severity_SEVERITY_NORMAL,
 								Message:  "A normal result",
 							},
 							{
-								Severity: v1beta1.Severity_SEVERITY_WARNING,
+								Severity: fnv1.Severity_SEVERITY_WARNING,
 								Message:  "A warning result",
 							},
 							{
-								Severity: v1beta1.Severity_SEVERITY_UNSPECIFIED,
+								Severity: fnv1.Severity_SEVERITY_UNSPECIFIED,
 								Message:  "A result of unspecified severity",
 							},
 							{
-								Severity: v1beta1.Severity_SEVERITY_NORMAL,
+								Severity: fnv1.Severity_SEVERITY_NORMAL,
 								Reason:   ptr.To("SomeReason"),
 								Message:  "A result with all values explicitly set.",
-								Target:   v1beta1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
+								Target:   fnv1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
 							},
 						},
-						Conditions: []*v1beta1.Condition{
+						Conditions: []*fnv1.Condition{
 							// A condition returned by the function with only the minimum
 							// necessary values.
 							{
 								Type:   "DatabaseReady",
-								Status: v1beta1.Status_STATUS_CONDITION_FALSE,
+								Status: fnv1.Status_STATUS_CONDITION_FALSE,
 								Reason: "Creating",
 							},
 							// A condition returned by the function with all optional values
 							// given.
 							{
 								Type:    "DeploymentReady",
-								Status:  v1beta1.Status_STATUS_CONDITION_TRUE,
+								Status:  fnv1.Status_STATUS_CONDITION_TRUE,
 								Reason:  "Available",
 								Message: ptr.To("The deployment is ready."),
-								Target:  v1beta1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
+								Target:  fnv1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
 							},
 						},
 					}
@@ -860,235 +859,6 @@ func TestFunctionCompose(t *testing.T) {
 								Message: "The deployment is ready.",
 							},
 							Target: CompositionTargetCompositeAndClaim,
-						},
-					},
-				},
-				err: nil,
-			},
-		},
-		"SuccessfulWithExtraResources": {
-			reason: "We should return a valid CompositionResult when a 'pure Function' (i.e. patch-and-transform-less) reconcile succeeds after having requested some extra resource",
-			params: params{
-				kube: &test.MockClient{
-					MockGet:         test.NewMockGetFn(kerrors.NewNotFound(schema.GroupResource{Resource: "UncoolComposed"}, "")), // all names are available
-					MockPatch:       test.NewMockPatchFn(nil),
-					MockStatusPatch: test.NewMockSubResourcePatchFn(nil),
-				},
-				r: func() FunctionRunner {
-					var nrCalls int
-					return FunctionRunnerFn(func(_ context.Context, _ string, req *v1beta1.RunFunctionRequest) (*v1beta1.RunFunctionResponse, error) {
-						defer func() { nrCalls++ }()
-						requirements := &v1beta1.Requirements{
-							ExtraResources: map[string]*v1beta1.ResourceSelector{
-								"existing": {
-									ApiVersion: "test.crossplane.io/v1",
-									Kind:       "Foo",
-									Match: &v1beta1.ResourceSelector_MatchName{
-										MatchName: "existing",
-									},
-								},
-								"missing": {
-									ApiVersion: "test.crossplane.io/v1",
-									Kind:       "Bar",
-									Match: &v1beta1.ResourceSelector_MatchName{
-										MatchName: "missing",
-									},
-								},
-							},
-						}
-						rsp := &v1beta1.RunFunctionResponse{
-							Desired: &v1beta1.State{
-								Composite: &v1beta1.Resource{
-									Resource: MustStruct(map[string]any{
-										"status": map[string]any{
-											"widgets": 42,
-										},
-									}),
-									ConnectionDetails: map[string][]byte{"from": []byte("function-pipeline")},
-								},
-								Resources: map[string]*v1beta1.Resource{
-									"observed-resource-a": {
-										Resource: MustStruct(map[string]any{
-											"apiVersion": "test.crossplane.io/v1",
-											"kind":       "CoolComposed",
-											"spec": map[string]any{
-												"someKey": req.GetInput().AsMap()["someKey"].(string),
-											},
-										}),
-										Ready: v1beta1.Ready_READY_TRUE,
-									},
-									"desired-resource-a": {
-										Resource: MustStruct(map[string]any{
-											"apiVersion": "test.crossplane.io/v1",
-											"kind":       "CoolComposed",
-										}),
-									},
-								},
-							},
-							Results: []*v1beta1.Result{
-								{
-									Severity: v1beta1.Severity_SEVERITY_NORMAL,
-									Message:  "A normal result",
-								},
-								{
-									Severity: v1beta1.Severity_SEVERITY_WARNING,
-									Message:  "A warning result",
-								},
-								{
-									Severity: v1beta1.Severity_SEVERITY_UNSPECIFIED,
-									Message:  "A result of unspecified severity",
-								},
-								{
-									// If the severity is unknown, the target should be force set
-									// to target only the XR.
-									Severity: v1beta1.Severity_SEVERITY_UNSPECIFIED,
-									Message:  "A result of unspecified severity targeting the claim should be forced to only target the XR.",
-									Target:   v1beta1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
-								},
-							},
-							Requirements: requirements,
-						}
-
-						if nrCalls > 1 {
-							t.Fatalf("unexpected number of calls to FunctionRunner.RunFunction, should have been exactly 2: %d", nrCalls+1)
-							return nil, errBoom
-						}
-
-						if nrCalls == 1 {
-							if len(req.GetExtraResources()) != 2 {
-								t.Fatalf("unexpected number of extra resources: %d", len(requirements.GetExtraResources()))
-							}
-							if rs := req.GetExtraResources()["missing"]; rs != nil && len(rs.GetItems()) != 0 {
-								t.Fatalf("unexpected extra resource, expected none, got: %v", rs)
-							}
-							if rs := req.GetExtraResources()["existing"]; rs == nil || len(rs.GetItems()) != 1 {
-								t.Fatalf("unexpected extra resource, expected one, got: %v", rs)
-							}
-						}
-
-						return rsp, nil
-					})
-				}(),
-				o: []FunctionComposerOption{
-					WithCompositeConnectionDetailsFetcher(ConnectionDetailsFetcherFn(func(_ context.Context, _ resource.ConnectionSecretOwner) (managed.ConnectionDetails, error) {
-						return nil, nil
-					})),
-					WithComposedResourceObserver(ComposedResourceObserverFn(func(_ context.Context, _ resource.Composite) (ComposedResourceStates, error) {
-						// We only try to extract connection details for
-						// observed resources.
-						r := ComposedResourceStates{
-							"observed-resource-a": ComposedResourceState{
-								Resource: &fake.Composed{
-									ObjectMeta: metav1.ObjectMeta{Name: "observed-resource-a"},
-								},
-							},
-						}
-						return r, nil
-					})),
-					WithComposedResourceGarbageCollector(ComposedResourceGarbageCollectorFn(func(_ context.Context, _ metav1.Object, _, _ ComposedResourceStates) error {
-						return nil
-					})),
-					WithExtraResourcesFetcher(ExtraResourcesFetcherFn(func(_ context.Context, rs *v1beta1.ResourceSelector) (*v1beta1.Resources, error) {
-						if rs.GetMatchName() == "existing" {
-							return &v1beta1.Resources{
-								Items: []*v1beta1.Resource{
-									{
-										Resource: MustStruct(map[string]any{
-											"apiVersion": "test.crossplane.io/v1",
-											"kind":       "Foo",
-											"metadata": map[string]any{
-												"name": "existing",
-											},
-											"spec": map[string]any{
-												"someField": "someValue",
-											},
-										}),
-									},
-								},
-							}, nil
-						}
-						return nil, nil
-					})),
-				},
-			},
-			args: args{
-				xr: func() *composite.Unstructured {
-					// Our XR needs a GVK to survive round-tripping through a
-					// protobuf struct (which involves using the Kubernetes-aware
-					// JSON unmarshaller that requires a GVK).
-					xr := composite.New(composite.WithGroupVersionKind(schema.GroupVersionKind{
-						Group:   "test.crossplane.io",
-						Version: "v1",
-						Kind:    "CoolComposite",
-					}))
-					xr.SetLabels(map[string]string{
-						xcrd.LabelKeyNamePrefixForComposed: "parent-xr",
-					})
-					return xr
-				}(),
-				req: CompositionRequest{
-					Revision: &v1.CompositionRevision{
-						Spec: v1.CompositionRevisionSpec{
-							Pipeline: []v1.PipelineStep{
-								{
-									Step:        "run-cool-function",
-									FunctionRef: v1.FunctionReference{Name: "cool-function"},
-									Input: &runtime.RawExtension{Raw: []byte(`{
-										"apiVersion": "test.crossplane.io/v1",
-										"kind": "Input",
-										"someKey": "someValue"
-									}`)},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: want{
-				res: CompositionResult{
-					Composed: []ComposedResource{
-						{ResourceName: "desired-resource-a", Synced: true},
-						{ResourceName: "observed-resource-a", Ready: true, Synced: true},
-					},
-					ConnectionDetails: managed.ConnectionDetails{
-						"from": []byte("function-pipeline"),
-					},
-					Events: []TargetedEvent{
-						{
-							Event: event.Event{
-								Type:    "Normal",
-								Reason:  "ComposeResources",
-								Message: "A normal result",
-							},
-							Detail: "Pipeline step \"run-cool-function\"",
-							Target: CompositionTargetComposite,
-						},
-						{
-							Event: event.Event{
-								Type:    "Warning",
-								Reason:  "ComposeResources",
-								Message: "A warning result",
-							},
-							Detail: "Pipeline step \"run-cool-function\"",
-							Target: CompositionTargetComposite,
-						},
-						{
-							Event: event.Event{
-								Type:    "Warning",
-								Reason:  "ComposeResources",
-								Message: "Pipeline step \"run-cool-function\" returned a result of unknown severity (assuming warning): A result of unspecified severity",
-							},
-							Target: CompositionTargetComposite,
-						},
-						// If the severity is unknown, the target should be force set
-						// to target only the XR.
-						{
-							Event: event.Event{
-								Type:    "Warning",
-								Reason:  "ComposeResources",
-								Message: "Pipeline step \"run-cool-function\" returned a result of unknown severity (assuming warning): A result of unspecified severity targeting the claim should be forced to only target the XR.",
-							},
-							Target: CompositionTargetComposite,
 						},
 					},
 				},
@@ -1359,7 +1129,7 @@ func TestAsState(t *testing.T) {
 		rs ComposedResourceStates
 	}
 	type want struct {
-		d   *v1beta1.State
+		d   *fnv1.State
 		err error
 	}
 
@@ -1388,15 +1158,15 @@ func TestAsState(t *testing.T) {
 				},
 			},
 			want: want{
-				d: &v1beta1.State{
-					Composite: &v1beta1.Resource{
+				d: &fnv1.State{
+					Composite: &fnv1.Resource{
 						Resource: &structpb.Struct{Fields: map[string]*structpb.Value{
 							"apiVersion": structpb.NewStringValue("example.org/v1"),
 							"kind":       structpb.NewStringValue("Composite"),
 						}},
 						ConnectionDetails: map[string][]byte{"a": []byte("b")},
 					},
-					Resources: map[string]*v1beta1.Resource{
+					Resources: map[string]*fnv1.Resource{
 						"cool-resource": {
 							Resource: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"apiVersion": structpb.NewStringValue("example.org/v2"),
@@ -1466,11 +1236,21 @@ func TestGarbageCollectComposedResources(t *testing.T) {
 					},
 				},
 				observed: ComposedResourceStates{
-					"undesired-resource": ComposedResourceState{Resource: &fake.Composed{}},
+					"undesired-resource": ComposedResourceState{Resource: &fake.Composed{
+						ObjectMeta: metav1.ObjectMeta{
+							// This resource isn't controlled by the XR.
+							OwnerReferences: []metav1.OwnerReference{{
+								Controller: ptr.To(true),
+								UID:        "a-different-xr",
+								Kind:       "XR",
+								Name:       "different",
+							}},
+						},
+					}},
 				},
 			},
 			want: want{
-				err: nil,
+				err: errors.New(`refusing to delete composed resource "undesired-resource" that is controlled by XR "different"`),
 			},
 		},
 		"DeleteError": {
@@ -1648,209 +1428,6 @@ func TestUpdateResourceRefs(t *testing.T) {
 
 			if diff := cmp.Diff(tc.want.xr, tc.args.xr); diff != "" {
 				t.Errorf("\n%s\nUpdateResourceRefs(...): -want, +got:\n%s", tc.reason, diff)
-			}
-		})
-	}
-}
-
-func TestExistingExtraResourcesFetcherFetch(t *testing.T) {
-	errBoom := errors.New("boom")
-
-	type args struct {
-		rs *v1beta1.ResourceSelector
-		c  client.Reader
-	}
-	type want struct {
-		res *v1beta1.Resources
-		err error
-	}
-	cases := map[string]struct {
-		reason string
-		args   args
-		want   want
-	}{
-		"SuccessMatchName": {
-			reason: "We should return a valid Resources when a resource is found by name",
-			args: args{
-				rs: &v1beta1.ResourceSelector{
-					ApiVersion: "test.crossplane.io/v1",
-					Kind:       "Foo",
-					Match: &v1beta1.ResourceSelector_MatchName{
-						MatchName: "cool-resource",
-					},
-				},
-				c: &test.MockClient{
-					MockGet: test.NewMockGetFn(nil, func(obj client.Object) error {
-						obj.SetName("cool-resource")
-						return nil
-					}),
-				},
-			},
-			want: want{
-				res: &v1beta1.Resources{
-					Items: []*v1beta1.Resource{
-						{
-							Resource: MustStruct(map[string]any{
-								"apiVersion": "test.crossplane.io/v1",
-								"kind":       "Foo",
-								"metadata": map[string]any{
-									"name": "cool-resource",
-								},
-							}),
-						},
-					},
-				},
-			},
-		},
-		"SuccessMatchLabels": {
-			reason: "We should return a valid Resources when a resource is found by labels",
-			args: args{
-				rs: &v1beta1.ResourceSelector{
-					ApiVersion: "test.crossplane.io/v1",
-					Kind:       "Foo",
-					Match: &v1beta1.ResourceSelector_MatchLabels{
-						MatchLabels: &v1beta1.MatchLabels{
-							Labels: map[string]string{
-								"cool": "resource",
-							},
-						},
-					},
-				},
-				c: &test.MockClient{
-					MockList: test.NewMockListFn(nil, func(obj client.ObjectList) error {
-						obj.(*kunstructured.UnstructuredList).Items = []kunstructured.Unstructured{
-							{
-								Object: map[string]interface{}{
-									"apiVersion": "test.crossplane.io/v1",
-									"kind":       "Foo",
-									"metadata": map[string]interface{}{
-										"name": "cool-resource",
-										"labels": map[string]interface{}{
-											"cool": "resource",
-										},
-									},
-								},
-							},
-							{
-								Object: map[string]interface{}{
-									"apiVersion": "test.crossplane.io/v1",
-									"kind":       "Foo",
-									"metadata": map[string]interface{}{
-										"name": "cooler-resource",
-										"labels": map[string]interface{}{
-											"cool": "resource",
-										},
-									},
-								},
-							},
-						}
-						return nil
-					}),
-				},
-			},
-			want: want{
-				res: &v1beta1.Resources{
-					Items: []*v1beta1.Resource{
-						{
-							Resource: MustStruct(map[string]any{
-								"apiVersion": "test.crossplane.io/v1",
-								"kind":       "Foo",
-								"metadata": map[string]any{
-									"name": "cool-resource",
-									"labels": map[string]any{
-										"cool": "resource",
-									},
-								},
-							}),
-						},
-						{
-							Resource: MustStruct(map[string]any{
-								"apiVersion": "test.crossplane.io/v1",
-								"kind":       "Foo",
-								"metadata": map[string]any{
-									"name": "cooler-resource",
-									"labels": map[string]any{
-										"cool": "resource",
-									},
-								},
-							}),
-						},
-					},
-				},
-			},
-		},
-		"NotFoundMatchName": {
-			reason: "We should return no error when a resource is not found by name",
-			args: args{
-				rs: &v1beta1.ResourceSelector{
-					ApiVersion: "test.crossplane.io/v1",
-					Kind:       "Foo",
-					Match: &v1beta1.ResourceSelector_MatchName{
-						MatchName: "cool-resource",
-					},
-				},
-				c: &test.MockClient{
-					MockGet: test.NewMockGetFn(kerrors.NewNotFound(schema.GroupResource{Resource: "Foo"}, "cool-resource")),
-				},
-			},
-			want: want{
-				res: nil,
-				err: nil,
-			},
-		},
-		// NOTE(phisco): No NotFound error is returned when listing resources by labels, so there is no NotFoundMatchLabels test case.
-		"ErrorMatchName": {
-			reason: "We should return any other error encountered when getting a resource by name",
-			args: args{
-				rs: &v1beta1.ResourceSelector{
-					ApiVersion: "test.crossplane.io/v1",
-					Kind:       "Foo",
-					Match: &v1beta1.ResourceSelector_MatchName{
-						MatchName: "cool-resource",
-					},
-				},
-				c: &test.MockClient{
-					MockGet: test.NewMockGetFn(errBoom),
-				},
-			},
-			want: want{
-				res: nil,
-				err: errBoom,
-			},
-		},
-		"ErrorMatchLabels": {
-			reason: "We should return any other error encountered when listing resources by labels",
-			args: args{
-				rs: &v1beta1.ResourceSelector{
-					ApiVersion: "test.crossplane.io/v1",
-					Kind:       "Foo",
-					Match: &v1beta1.ResourceSelector_MatchLabels{
-						MatchLabels: &v1beta1.MatchLabels{
-							Labels: map[string]string{
-								"cool": "resource",
-							},
-						},
-					},
-				},
-				c: &test.MockClient{
-					MockList: test.NewMockListFn(errBoom),
-				},
-			},
-			want: want{
-				res: nil,
-				err: errBoom,
-			},
-		},
-	}
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			g := NewExistingExtraResourcesFetcher(tc.args.c)
-			res, err := g.Fetch(context.Background(), tc.args.rs)
-			if diff := cmp.Diff(tc.want.err, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\nGet(...): -want, +got:\n%s", tc.reason, diff)
-			}
-			if diff := cmp.Diff(tc.want.res, res, cmpopts.IgnoreUnexported(v1beta1.Resources{}, v1beta1.Resource{}, structpb.Struct{}, structpb.Value{})); diff != "" {
-				t.Errorf("\n%s\nGet(...): -want, +got:\n%s", tc.reason, diff)
 			}
 		})
 	}
